@@ -9,7 +9,8 @@ import {
   RotateCcw,
   Target,
   Timer,
-  TrendingUp
+  TrendingUp,
+  RefreshCw
 } from 'lucide-react';
 import { useWallet } from '../contexts/WalletContext';
 import { useRewards } from '../contexts/RewardsContext';
@@ -23,6 +24,7 @@ interface Game {
   baseReward: number;
   multiplier: number;
   color: string;
+  type: 'skill' | 'luck' | 'daily';
 }
 
 const Games: React.FC = () => {
@@ -33,8 +35,25 @@ const Games: React.FC = () => {
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(30);
   const [gameResult, setGameResult] = useState<'win' | 'lose' | null>(null);
+  
+  // Daily spin states
+  const [canSpinDaily, setCanSpinDaily] = useState(true);
+  const [spinning, setSpinning] = useState(false);
+  const [spinResult, setSpinResult] = useState<number | null>(null);
+  const [lastSpinDate, setLastSpinDate] = useState<string | null>(null);
 
   const games: Game[] = [
+    {
+      id: 'daily-spin',
+      name: 'Daily Spin',
+      description: 'Spin the wheel once per day for free rewards!',
+      icon: '🎰',
+      difficulty: 'Easy',
+      baseReward: 50,
+      multiplier: 1.0,
+      color: 'from-crypto-gold to-yellow-400',
+      type: 'daily'
+    },
     {
       id: 'crypto-clicker',
       name: 'Crypto Clicker',
@@ -43,7 +62,8 @@ const Games: React.FC = () => {
       difficulty: 'Easy',
       baseReward: 10,
       multiplier: 1.5,
-      color: 'from-crypto-neon to-green-400'
+      color: 'from-crypto-neon to-green-400',
+      type: 'skill'
     },
     {
       id: 'memory-match',
@@ -53,7 +73,8 @@ const Games: React.FC = () => {
       difficulty: 'Medium',
       baseReward: 25,
       multiplier: 2.0,
-      color: 'from-crypto-purple to-purple-400'
+      color: 'from-crypto-purple to-purple-400',
+      type: 'skill'
     },
     {
       id: 'speed-typer',
@@ -63,26 +84,48 @@ const Games: React.FC = () => {
       difficulty: 'Hard',
       baseReward: 50,
       multiplier: 3.0,
-      color: 'from-crypto-gold to-yellow-400'
+      color: 'from-crypto-gold to-yellow-400',
+      type: 'skill'
     }
   ];
 
+  // Check daily spin availability on component mount
+  useEffect(() => {
+    const lastSpin = localStorage.getItem('lastDailySpin');
+    if (lastSpin) {
+      const lastSpinTime = new Date(lastSpin);
+      const now = new Date();
+      const timeDiff = now.getTime() - lastSpinTime.getTime();
+      const hoursDiff = timeDiff / (1000 * 3600);
+      
+      if (hoursDiff < 24) {
+        setCanSpinDaily(false);
+        setLastSpinDate(lastSpin);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     let timer: NodeJS.Timeout;
-    if (gameActive && timeLeft > 0) {
+    if (gameActive && timeLeft > 0 && selectedGame?.type !== 'daily') {
       timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
-    } else if (timeLeft === 0 && gameActive) {
+    } else if (timeLeft === 0 && gameActive && selectedGame?.type !== 'daily') {
       endGame();
     }
     return () => clearTimeout(timer);
-  }, [gameActive, timeLeft]);
+  }, [gameActive, timeLeft, selectedGame]);
 
   const startGame = (game: Game) => {
     setSelectedGame(game);
-    setGameActive(true);
-    setScore(0);
-    setTimeLeft(30);
-    setGameResult(null);
+    if (game.type === 'daily') {
+      setGameActive(true);
+      setSpinResult(null);
+    } else {
+      setGameActive(true);
+      setScore(0);
+      setTimeLeft(30);
+      setGameResult(null);
+    }
   };
 
   const endGame = () => {
@@ -112,6 +155,7 @@ const Games: React.FC = () => {
     setScore(0);
     setTimeLeft(30);
     setGameResult(null);
+    setSpinResult(null);
   };
 
   const handleCryptoClicker = () => {
@@ -120,10 +164,95 @@ const Games: React.FC = () => {
     }
   };
 
+  const spinDailyWheel = () => {
+    if (!canSpinDaily || spinning) return;
+
+    setSpinning(true);
+    
+    // Simulate spinning animation
+    setTimeout(() => {
+      const rewards = [25, 50, 75, 100, 150, 200, 300, 500];
+      const randomReward = rewards[Math.floor(Math.random() * rewards.length)];
+      
+      setSpinResult(randomReward);
+      setSpinning(false);
+      
+      // Add reward to wallet
+      addTransaction({
+        type: 'earn',
+        amount: randomReward,
+        description: 'Daily Spin Reward',
+        gameId: 'daily-spin'
+      });
+      
+      // Mark daily spin as used
+      setCanSpinDaily(false);
+      const now = new Date();
+      setLastSpinDate(now.toISOString());
+      localStorage.setItem('lastDailySpin', now.toISOString());
+      
+      // Add experience
+      addExperience(Math.floor(randomReward / 10));
+      
+    }, 3000);
+  };
+
   const renderGame = () => {
     if (!selectedGame) return null;
 
     switch (selectedGame.id) {
+      case 'daily-spin':
+        return (
+          <div className="text-center">
+            <div className="text-6xl mb-8">🎰</div>
+            <div className="mb-8">
+              <h3 className="text-2xl font-bold text-white mb-4">Daily Spin Wheel</h3>
+              <p className="text-gray-400 mb-6">
+                Spin once per day for free rewards! Come back tomorrow for another spin.
+              </p>
+              
+              {canSpinDaily ? (
+                <button
+                  onClick={spinDailyWheel}
+                  disabled={spinning}
+                  className="w-48 h-48 bg-gradient-to-r from-crypto-gold to-yellow-400 rounded-full text-2xl font-bold text-white hover:scale-110 transition-transform duration-200 focus:outline-none focus:ring-4 focus:ring-crypto-gold/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {spinning ? (
+                    <div className="flex flex-col items-center">
+                      <RefreshCw className="w-12 h-12 animate-spin mb-2" />
+                      <span>Spinning...</span>
+                    </div>
+                  ) : (
+                    'SPIN!'
+                  )}
+                </button>
+              ) : (
+                <div className="space-y-4">
+                  <div className="text-4xl text-crypto-gold mb-4">⏰</div>
+                  <p className="text-gray-300 text-lg">Daily spin used!</p>
+                  <p className="text-gray-400">
+                    Last spin: {lastSpinDate ? new Date(lastSpinDate).toLocaleDateString() : 'Unknown'}
+                  </p>
+                  <p className="text-gray-400">Come back tomorrow for another free spin!</p>
+                </div>
+              )}
+              
+              {spinResult && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="mt-8 p-6 bg-green-500/20 border border-green-500/30 rounded-lg"
+                >
+                  <div className="text-6xl mb-4">🎉</div>
+                  <h4 className="text-2xl font-bold text-green-400 mb-2">Congratulations!</h4>
+                  <p className="text-green-300 text-xl">
+                    You won {spinResult} DulpPoints!
+                  </p>
+                </motion.div>
+              )}
+            </div>
+          </div>
+        );
       case 'crypto-clicker':
         return (
           <div className="text-center">
@@ -182,6 +311,20 @@ const Games: React.FC = () => {
                 <h3 className="text-2xl font-bold text-white mb-3 text-center">{game.name}</h3>
                 <p className="text-gray-400 text-center mb-4">{game.description}</p>
                 
+                {game.type === 'daily' && (
+                  <div className="mb-4 text-center">
+                    {canSpinDaily ? (
+                      <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-sm font-medium">
+                        Available Today
+                      </span>
+                    ) : (
+                      <span className="px-3 py-1 bg-gray-500/20 text-gray-400 rounded-full text-sm font-medium">
+                        Used Today
+                      </span>
+                    )}
+                  </div>
+                )}
+                
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="text-gray-400">Difficulty:</span>
@@ -197,15 +340,17 @@ const Games: React.FC = () => {
                     <span className="text-gray-400">Base Reward:</span>
                     <span className="text-crypto-neon font-semibold">{game.baseReward} pts</span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-400">Multiplier:</span>
-                    <span className="text-crypto-gold font-semibold">x{game.multiplier}</span>
-                  </div>
+                  {game.type !== 'daily' && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">Multiplier:</span>
+                      <span className="text-crypto-gold font-semibold">x{game.multiplier}</span>
+                    </div>
+                  )}
                 </div>
 
                 <button className="w-full mt-6 btn-primary flex items-center justify-center space-x-2">
                   <Play className="w-4 h-4" />
-                  <span>Play Now</span>
+                  <span>{game.type === 'daily' ? 'Spin Now' : 'Play Now'}</span>
                 </button>
               </motion.div>
             ))}
@@ -239,31 +384,33 @@ const Games: React.FC = () => {
                 </button>
               </div>
 
-              {/* Game Stats */}
-              <div className="grid grid-cols-3 gap-4 mb-8">
-                <div className="text-center p-4 bg-gray-800/50 rounded-lg border border-gray-700">
-                  <div className="text-2xl font-bold text-crypto-neon">{score}</div>
-                  <div className="text-gray-400 text-sm">Score</div>
-                </div>
-                <div className="text-center p-4 bg-gray-800/50 rounded-lg border border-gray-700">
-                  <div className="text-2xl font-bold text-crypto-gold">{timeLeft}s</div>
-                  <div className="text-gray-400 text-sm">Time Left</div>
-                </div>
-                <div className="text-center p-4 bg-gray-800/50 rounded-lg border border-gray-700">
-                  <div className="text-2xl font-bold text-crypto-purple">
-                    {Math.floor(score * selectedGame.multiplier)}
+              {/* Game Stats - Only show for skill-based games */}
+              {selectedGame.type !== 'daily' && (
+                <div className="grid grid-cols-3 gap-4 mb-8">
+                  <div className="text-center p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+                    <div className="text-2xl font-bold text-crypto-neon">{score}</div>
+                    <div className="text-gray-400 text-sm">Score</div>
                   </div>
-                  <div className="text-gray-400 text-sm">Potential Reward</div>
+                  <div className="text-center p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+                    <div className="text-2xl font-bold text-crypto-gold">{timeLeft}s</div>
+                    <div className="text-gray-400 text-sm">Time Left</div>
+                  </div>
+                  <div className="text-center p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+                    <div className="text-2xl font-bold text-crypto-purple">
+                      {Math.floor(score * selectedGame.multiplier)}
+                    </div>
+                    <div className="text-gray-400 text-sm">Potential Reward</div>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Game Area */}
               <div className="min-h-96 flex items-center justify-center">
                 {renderGame()}
               </div>
 
-              {/* Game Result */}
-              {gameResult && (
+              {/* Game Result - Only show for skill-based games */}
+              {gameResult && selectedGame.type !== 'daily' && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
