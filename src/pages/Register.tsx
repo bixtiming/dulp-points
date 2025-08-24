@@ -1,20 +1,58 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Eye, EyeOff, Mail, Lock, User, AlertCircle, CheckCircle } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, AlertCircle, CheckCircle, Gift } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const Register: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { register } = useAuth();
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+  const [checkingUsername, setCheckingUsername] = useState(false);
+  const { register, error: authError, clearError } = useAuth();
   const navigate = useNavigate();
+
+  // Check for referral code in URL
+  useEffect(() => {
+    const ref = searchParams.get('ref');
+    if (ref) {
+      setReferralCode(ref);
+    }
+  }, [searchParams]);
+
+  // Clear auth errors when component unmounts
+  useEffect(() => {
+    return () => {
+      clearError();
+    };
+  }, [clearError]);
+
+  // Check username availability
+  useEffect(() => {
+    const checkUsername = async () => {
+      if (username.length >= 3) {
+        setCheckingUsername(true);
+        // Simulate username check (in real app, this would call an API)
+        setTimeout(() => {
+          setUsernameAvailable(username !== 'admin' && username !== 'test');
+          setCheckingUsername(false);
+        }, 500);
+      } else {
+        setUsernameAvailable(null);
+      }
+    };
+
+    const timeoutId = setTimeout(checkUsername, 300);
+    return () => clearTimeout(timeoutId);
+  }, [username]);
 
   const validateForm = () => {
     if (!username || !email || !password || !confirmPassword) {
@@ -27,6 +65,21 @@ const Register: React.FC = () => {
       return false;
     }
 
+    if (username.length > 20) {
+      setError('Username must be less than 20 characters');
+      return false;
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      setError('Username can only contain letters, numbers, and underscores');
+      return false;
+    }
+
+    if (usernameAvailable === false) {
+      setError('Username is already taken');
+      return false;
+    }
+
     if (password.length < 6) {
       setError('Password must be at least 6 characters long');
       return false;
@@ -34,6 +87,11 @@ const Register: React.FC = () => {
 
     if (password !== confirmPassword) {
       setError('Passwords do not match');
+      return false;
+    }
+
+    if (referralCode && referralCode.length !== 6) {
+      setError('Referral code must be 6 characters long');
       return false;
     }
 
@@ -48,7 +106,7 @@ const Register: React.FC = () => {
     try {
       setError('');
       setLoading(true);
-      await register(email, password, username);
+      await register(email, password, username, referralCode || undefined);
       navigate('/dashboard');
     } catch (error: any) {
       setError(error.message || 'Failed to create account');
@@ -56,6 +114,21 @@ const Register: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const getUsernameStatus = () => {
+    if (checkingUsername) {
+      return { icon: '⏳', text: 'Checking...', color: 'text-yellow-400' };
+    }
+    if (usernameAvailable === true) {
+      return { icon: '✅', text: 'Available', color: 'text-green-400' };
+    }
+    if (usernameAvailable === false) {
+      return { icon: '❌', text: 'Taken', color: 'text-red-400' };
+    }
+    return null;
+  };
+
+  const usernameStatus = getUsernameStatus();
 
   return (
     <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -85,6 +158,7 @@ const Register: React.FC = () => {
           onSubmit={handleSubmit}
         >
           <div className="space-y-4">
+            {/* Username Field */}
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-2">
                 Username
@@ -104,9 +178,18 @@ const Register: React.FC = () => {
                   className="appearance-none relative block w-full pl-10 pr-3 py-3 border border-gray-600 placeholder-gray-400 text-white bg-gray-800/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-crypto-neon focus:border-transparent transition-all duration-200"
                   placeholder="Choose a username"
                 />
+                {usernameStatus && (
+                  <div className={`absolute right-3 top-1/2 transform -translate-y-1/2 text-sm ${usernameStatus.color}`}>
+                    {usernameStatus.icon} {usernameStatus.text}
+                  </div>
+                )}
               </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Username must be 3-20 characters, letters, numbers, and underscores only
+              </p>
             </div>
 
+            {/* Email Field */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
                 Email Address
@@ -129,6 +212,34 @@ const Register: React.FC = () => {
               </div>
             </div>
 
+            {/* Referral Code Field */}
+            <div>
+              <label htmlFor="referralCode" className="block text-sm font-medium text-gray-300 mb-2">
+                Referral Code <span className="text-gray-500">(Optional)</span>
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Gift className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  id="referralCode"
+                  name="referralCode"
+                  type="text"
+                  value={referralCode}
+                  onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                  className="appearance-none relative block w-full pl-10 pr-3 py-3 border border-gray-600 placeholder-gray-400 text-white bg-gray-800/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-crypto-neon focus:border-transparent transition-all duration-200"
+                  placeholder="Enter referral code (6 characters)"
+                  maxLength={6}
+                />
+              </div>
+              {referralCode && (
+                <p className="text-xs text-crypto-neon mt-1">
+                  You'll get bonus points for using a referral code!
+                </p>
+              )}
+            </div>
+
+            {/* Password Field */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
                 Password
@@ -160,8 +271,12 @@ const Register: React.FC = () => {
                   )}
                 </button>
               </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Password must be at least 6 characters long
+              </p>
             </div>
 
+            {/* Confirm Password Field */}
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-2">
                 Confirm Password
@@ -196,21 +311,23 @@ const Register: React.FC = () => {
             </div>
           </div>
 
-          {error && (
+          {/* Error Display */}
+          {(error || authError) && (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               className="flex items-center space-x-2 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400"
             >
               <AlertCircle className="h-5 w-5" />
-              <span className="text-sm">{error}</span>
+              <span className="text-sm">{error || authError}</span>
             </motion.div>
           )}
 
+          {/* Submit Button */}
           <div>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || usernameAvailable === false || checkingUsername}
               className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-crypto-neon to-crypto-purple hover:from-crypto-purple hover:to-crypto-neon focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-crypto-neon disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105"
             >
               {loading ? (
@@ -221,6 +338,7 @@ const Register: React.FC = () => {
             </button>
           </div>
 
+          {/* Login Link */}
           <div className="text-center">
             <p className="text-gray-400">
               Already have an account?{' '}

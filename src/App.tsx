@@ -11,61 +11,66 @@ import Referrals from './pages/Referrals';
 import Wallet from './pages/Wallet';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import NotFound from './pages/NotFound';
 import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 import './App.css';
 
 function App() {
   return (
-    <Router>
-      <AuthProvider>
-        <WalletProvider>
-          <RewardsProvider>
-            <div className="App min-h-screen bg-crypto-dark">
-              <Navbar />
-              <main className="pt-20">
-                <Routes>
-                  <Route path="/" element={<Home />} />
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/register" element={<Register />} />
-                  <Route 
-                    path="/dashboard" 
-                    element={
-                      <ProtectedRoute>
-                        <Dashboard />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/games" 
-                    element={
-                      <ProtectedRoute>
-                        <Games />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/referrals" 
-                    element={
-                      <ProtectedRoute>
-                        <Referrals />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/wallet" 
-                    element={
-                      <ProtectedRoute>
-                        <Wallet />
-                      </ProtectedRoute>
-                    } 
-                  />
-                </Routes>
-              </main>
-            </div>
-          </RewardsProvider>
-        </WalletProvider>
-      </AuthProvider>
-    </Router>
+    <ErrorBoundary>
+      <Router>
+        <AuthProvider>
+          <WalletProvider>
+            <RewardsProvider>
+              <div className="App min-h-screen bg-crypto-dark">
+                <Navbar />
+                <main className="pt-20">
+                  <Routes>
+                    <Route path="/" element={<Home />} />
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/register" element={<Register />} />
+                    <Route 
+                      path="/dashboard" 
+                      element={
+                        <ProtectedRoute>
+                          <Dashboard />
+                        </ProtectedRoute>
+                      } 
+                    />
+                    <Route 
+                      path="/games" 
+                      element={
+                        <ProtectedRoute>
+                          <Games />
+                        </ProtectedRoute>
+                      } 
+                    />
+                    <Route 
+                      path="/referrals" 
+                      element={
+                        <ProtectedRoute>
+                          <Referrals />
+                        </ProtectedRoute>
+                      } 
+                    />
+                    <Route 
+                      path="/wallet" 
+                      element={
+                        <ProtectedRoute>
+                          <Wallet />
+                        </ProtectedRoute>
+                      } 
+                    />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </main>
+              </div>
+            </RewardsProvider>
+          </WalletProvider>
+        </AuthProvider>
+      </Router>
+    </ErrorBoundary>
   );
 }
 

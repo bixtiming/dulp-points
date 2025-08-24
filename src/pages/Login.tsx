@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Eye, EyeOff, Mail, Lock, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, AlertCircle, RefreshCw, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const Login: React.FC = () => {
@@ -10,8 +10,19 @@ const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const [showResetForm, setShowResetForm] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const { login, resetPassword, error: authError, clearError } = useAuth();
   const navigate = useNavigate();
+
+  // Clear auth errors when component unmounts
+  useEffect(() => {
+    return () => {
+      clearError();
+    };
+  }, [clearError]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,6 +43,149 @@ const Login: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!resetEmail) {
+      setError('Please enter your email address');
+      return;
+    }
+
+    try {
+      setError('');
+      setResetLoading(true);
+      await resetPassword(resetEmail);
+      setResetSent(true);
+    } catch (error: any) {
+      setError(error.message || 'Failed to send password reset email');
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const goBackToLogin = () => {
+    setShowResetForm(false);
+    setResetEmail('');
+    setResetSent(false);
+    setError('');
+  };
+
+  if (showResetForm) {
+    return (
+      <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8">
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="text-center"
+          >
+            <div className="mx-auto h-16 w-16 bg-gradient-to-r from-crypto-neon to-crypto-purple rounded-full flex items-center justify-center mb-6">
+              <span className="text-2xl font-bold text-white">D</span>
+            </div>
+            <h2 className="text-3xl font-bold text-white mb-2">
+              Reset Password
+            </h2>
+            <p className="text-gray-400">
+              Enter your email to receive a password reset link
+            </p>
+          </motion.div>
+
+          {!resetSent ? (
+            <motion.form
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+              className="mt-8 space-y-6"
+              onSubmit={handleResetPassword}
+            >
+              <div>
+                <label htmlFor="resetEmail" className="block text-sm font-medium text-gray-300 mb-2">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Mail className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    id="resetEmail"
+                    name="resetEmail"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    className="appearance-none relative block w-full pl-10 pr-3 py-3 border border-gray-600 placeholder-gray-400 text-white bg-gray-800/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-crypto-neon focus:border-transparent transition-all duration-200"
+                    placeholder="Enter your email"
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="flex items-center space-x-2 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400"
+                >
+                  <AlertCircle className="h-5 w-5" />
+                  <span className="text-sm">{error}</span>
+                </motion.div>
+              )}
+
+              <div>
+                <button
+                  type="submit"
+                  disabled={resetLoading}
+                  className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-crypto-neon to-crypto-purple hover:from-crypto-purple hover:to-crypto-neon focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-crypto-neon disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105"
+                >
+                  {resetLoading ? (
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  ) : (
+                    'Send Reset Link'
+                  )}
+                </button>
+              </div>
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={goBackToLogin}
+                  className="text-crypto-neon hover:text-crypto-purple transition-colors duration-200 flex items-center justify-center space-x-2 mx-auto"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Back to Login</span>
+                </button>
+              </div>
+            </motion.form>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="text-center space-y-6"
+            >
+              <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <RefreshCw className="w-10 h-10 text-green-400" />
+              </div>
+              <h3 className="text-xl font-bold text-green-400">Reset Link Sent!</h3>
+              <p className="text-gray-300">
+                We've sent a password reset link to <span className="text-crypto-neon">{resetEmail}</span>
+              </p>
+              <p className="text-gray-400 text-sm">
+                Check your email and click the link to reset your password. The link will expire in 1 hour.
+              </p>
+              <button
+                onClick={goBackToLogin}
+                className="btn-primary"
+              >
+                Back to Login
+              </button>
+            </motion.div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -117,14 +271,15 @@ const Login: React.FC = () => {
             </div>
           </div>
 
-          {error && (
+          {/* Error Display */}
+          {(error || authError) && (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               className="flex items-center space-x-2 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400"
             >
               <AlertCircle className="h-5 w-5" />
-              <span className="text-sm">{error}</span>
+              <span className="text-sm">{error || authError}</span>
             </motion.div>
           )}
 
@@ -142,16 +297,20 @@ const Login: React.FC = () => {
             </button>
           </div>
 
-          <div className="text-center">
-            <p className="text-gray-400">
-              Don't have an account?{' '}
-              <Link
-                to="/register"
-                className="font-medium text-crypto-neon hover:text-crypto-purple transition-colors duration-200"
-              >
-                Sign up here
-              </Link>
-            </p>
+          <div className="flex flex-col sm:flex-row justify-between items-center space-y-2 sm:space-y-0">
+            <button
+              type="button"
+              onClick={() => setShowResetForm(true)}
+              className="text-crypto-neon hover:text-crypto-purple transition-colors duration-200 text-sm"
+            >
+              Forgot your password?
+            </button>
+            <Link
+              to="/register"
+              className="text-crypto-neon hover:text-crypto-purple transition-colors duration-200 text-sm"
+            >
+              Don't have an account? Sign up
+            </Link>
           </div>
         </motion.form>
 
