@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
-  Wallet, 
+  Wallet as WalletIcon, 
   Zap, 
   TrendingUp, 
   TrendingDown, 
@@ -112,7 +112,7 @@ const Wallet: React.FC = () => {
           >
             <div className="text-center">
               <div className="w-12 h-12 bg-gradient-to-r from-crypto-neon to-green-400 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Wallet className="w-6 h-6 text-white" />
+                <WalletIcon className="w-6 h-6 text-white" />
               </div>
               <div className="text-3xl font-bold text-crypto-neon mb-2">
                 {balance.toLocaleString()}
@@ -250,7 +250,7 @@ const Wallet: React.FC = () => {
             ) : (
               <div className="text-center py-12">
                 <div className="w-20 h-20 bg-gray-700/50 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Wallet className="w-10 h-10 text-gray-400" />
+                  <WalletIcon className="w-10 h-10 text-gray-400" />
                 </div>
                 <p className="text-gray-400 text-lg mb-2">No transactions found</p>
                 <p className="text-gray-500">
